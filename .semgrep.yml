@@ -1,0 +1,20 @@
+#Used for conducting dependency scanning
+rules:
+  - id: insecure-ssl
+    patterns:
+      - pattern: session.verify = False
+    message: "Disabling SSL certificate verification is insecure."
+    severity: ERROR
+  - id: hardcoded-credentials
+    patterns:
+      - pattern: PASSWORD = "...*"
+    message: "Avoid hardcoding credentials. Use environment variables or a secure vault."
+    severity: ERROR
+  - id: python-hardcoded-password
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "$SECRET"
+          - pattern: $VAR = '$SECRET'
+    message: Avoid hardcoding passwords in code.
+    languages: [python]
+    severity: ERROR

@@ -1,0 +1,18 @@
+- name: Provision AWS EC2 instances
+  hosts: localhost
+  tasks:
+    - name: Launch EC2 instance 1
+      amazon.aws.ec2_instance:
+        key_name: "{{ key_pair }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "ami-050cd642fd83388e4"  # Amazon Linux 2 example
+        wait: true
+      register: ec2_instance_1
+
+    - name: Launch EC2 instance 2
+      amazon.aws.ec2_instance:
+        key_name: "{{ key_pair }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "ami-0900fe555666598a2"  # Amazon Linux 2 example
+        wait: true
+      register: ec2_instance_2

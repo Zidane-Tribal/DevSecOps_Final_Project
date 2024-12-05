@@ -1,0 +1,14 @@
+- name: Rollback EC2 instances
+  hosts: localhost
+  tasks:
+    - name: Terminate EC2 instance 1
+      amazon.aws.ec2_instance:
+        state: absent
+        instance_ids: "{{ ec2_instance_1.instance_ids }}"
+        wait: yes
+
+    - name: Terminate EC2 instance 2
+      amazon.aws.ec2_instance:
+        state: absent
+        instance_ids: "{{ ec2_instance_2.instance_ids }}"
+        wait: yes

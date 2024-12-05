@@ -1,0 +1,113 @@
+#This is the YML files which glues all the other config files for successful CI/CD Pipeline Execution
+# Include predefined GitLab templates
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/DAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+
+# Define variables
+variables:
+  AWS_REGION: "us-east-2"
+  EC2_INSTANCE_TYPE: "t2.micro"
+  KEY_PAIR: "intranet-web-server2"
+  DAST_WEBSITE: "http://18.116.69.225/blog"
+  DAST_DEBUG: "true"
+  DS_EXCLUDED_PATHS: "venv/"  # Exclude unnecessary directories
+  SAST_DEBUG: "true"
+  SAST_EXCLUDED_PATHS: "venv/"
+  SAST_DEFAULT_BRANCH: "main"
+
+# Define stages
+stages:
+  - lint
+  - security_check
+  - sast
+  - dast
+  - dependency_scanning
+  - deploy
+  - rollback
+
+# Linting playbook in a virtual environment
+lint-playbook:
+  stage: lint
+  script:
+    - apt-get update
+    - apt-get install -y python3-venv python3-pip
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install ansible-lint
+    - ansible-galaxy collection install amazon.aws
+    - ansible-lint main_playbook.yml
+
+# Security checks on IaC files
+security_check:
+  stage: security_check
+  script:
+    - echo "Running security checks on IaC files"
+    - apt-get update
+    - apt-get install -y python3-venv python3-pip
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install ansible-lint
+    - ansible-galaxy collection install amazon.aws
+    - ansible-lint main_playbook.yml
+
+# GitLab SAST
+sast:
+  stage: sast
+  image: registry.gitlab.com/security-products/sast:latest
+  variables:
+    SAST_CUSTOM_RULES_PATH: ".semgrep.yml"
+  script:
+    - echo "Running SAST analysis"
+    - /analyze
+  artifacts:
+    paths:
+      - gl-sast-report.json
+    reports:
+      sast: gl-sast-report.json
+
+# GitLab DAST
+dast:
+  stage: dast
+  image: registry.gitlab.com/security-products/dast:latest
+  script:
+    - echo "Running DAST analysis"
+    - /analyze
+  artifacts:
+    paths:
+      - dast_artifacts/gl-dast-report.json
+    reports:
+      dast: dast_artifacts/gl-dast-report.json
+
+# Dependency Scanning
+dependency_scanning:
+  stage: dependency_scanning
+  script:
+    - echo "Running dependency scanning"
+  artifacts:
+    reports:
+      dependency_scanning: gl-dependency-scanning-report.json
+
+# Deploying EC2 instances
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying two EC2 instances on AWS"
+    - apt-get update
+    - apt-get install -y python3-venv python3-pip
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install boto3 botocore
+    - apt-get install -y python3-pip
+    - pip3 install ansible
+    - ansible-playbook main_playbook.yml --extra-vars "aws_region=${AWS_REGION} instance_type=${EC2_INSTANCE_TYPE} key_pair=${KEY_PAIR}"
+  when: on_success
+
+# Rollback EC2 instances
+rollback:
+  stage: rollback
+  script:
+    - echo "Rolling back EC2 instances due to failure"
+    - ansible-playbook rollback.yml --extra-vars "aws_region=${AWS_REGION}"
+  when: on_failure
